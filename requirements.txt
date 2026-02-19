@@ -1,0 +1,13 @@
+# MCP Server for elabFTW - Dependencies
+
+# MCP SDK for building Model Context Protocol servers
+mcp>=1.0.0
+
+# HTTP client for API requests
+httpx>=0.25.0
+
+# For async support
+anyio>=4.0.0
+
+# Optional: for .env file support
+python-dotenv>=1.0.0
