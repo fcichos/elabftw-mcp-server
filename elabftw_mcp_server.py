@@ -962,6 +962,320 @@ class ElabFTWClient:
                 "message": f"Booking {event_id} has been cancelled",
             }
 
+    # ==================== UPLOAD LISTING METHODS ====================
+
+    def list_experiment_uploads(self, experiment_id: int) -> list[dict[str, Any]]:
+        """
+        List file attachments for an experiment.
+
+        Args:
+            experiment_id: The ID of the experiment
+
+        Returns:
+            List of upload metadata dicts (filename, size, uploader, date, download_url)
+        """
+        with self._get_client() as client:
+            response = client.get(
+                f"{self.base_url}/experiments/{experiment_id}/uploads"
+            )
+            response.raise_for_status()
+            uploads = response.json()
+            base = self.base_url.replace("/api/v2", "")
+            for u in uploads:
+                u["download_url"] = (
+                    f"{base}/app/download.php?f={u['long_name']}&name={u['real_name']}"
+                )
+            return uploads
+
+    def list_item_uploads(self, item_id: int) -> list[dict[str, Any]]:
+        """
+        List file attachments for a database item.
+
+        Args:
+            item_id: The ID of the item
+
+        Returns:
+            List of upload metadata dicts (filename, size, uploader, date, download_url)
+        """
+        with self._get_client() as client:
+            response = client.get(f"{self.base_url}/items/{item_id}/uploads")
+            response.raise_for_status()
+            uploads = response.json()
+            base = self.base_url.replace("/api/v2", "")
+            for u in uploads:
+                u["download_url"] = (
+                    f"{base}/app/download.php?f={u['long_name']}&name={u['real_name']}"
+                )
+            return uploads
+
+    # ==================== STEPS METHODS ====================
+
+    def add_experiment_step(self, experiment_id: int, body: str) -> dict[str, Any]:
+        """Add a checklist step/task to an experiment."""
+        with self._get_client() as client:
+            response = client.post(
+                f"{self.base_url}/experiments/{experiment_id}/steps",
+                json={"body": body},
+            )
+            response.raise_for_status()
+            location = response.headers.get("location", "")
+            step_id = int(location.split("/")[-1]) if location else None
+            return {
+                "status": "success",
+                "step_id": step_id,
+                "message": f"Step added to experiment {experiment_id}",
+            }
+
+    def update_experiment_step(
+        self, experiment_id: int, step_id: int, body: str
+    ) -> dict[str, Any]:
+        """Update the text of an experiment step."""
+        with self._get_client() as client:
+            response = client.patch(
+                f"{self.base_url}/experiments/{experiment_id}/steps/{step_id}",
+                json={"body": body},
+            )
+            response.raise_for_status()
+            return {"status": "success", "message": f"Step {step_id} updated"}
+
+    def delete_experiment_step(
+        self, experiment_id: int, step_id: int
+    ) -> dict[str, Any]:
+        """Delete a step from an experiment."""
+        with self._get_client() as client:
+            response = client.delete(
+                f"{self.base_url}/experiments/{experiment_id}/steps/{step_id}",
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Step {step_id} deleted from experiment {experiment_id}",
+            }
+
+    def add_item_step(self, item_id: int, body: str) -> dict[str, Any]:
+        """Add a checklist step/maintenance task to a database item."""
+        with self._get_client() as client:
+            response = client.post(
+                f"{self.base_url}/items/{item_id}/steps",
+                json={"body": body},
+            )
+            response.raise_for_status()
+            location = response.headers.get("location", "")
+            step_id = int(location.split("/")[-1]) if location else None
+            return {
+                "status": "success",
+                "step_id": step_id,
+                "message": f"Step added to item {item_id}",
+            }
+
+    def update_item_step(
+        self, item_id: int, step_id: int, body: str
+    ) -> dict[str, Any]:
+        """Update the text of an item step."""
+        with self._get_client() as client:
+            response = client.patch(
+                f"{self.base_url}/items/{item_id}/steps/{step_id}",
+                json={"body": body},
+            )
+            response.raise_for_status()
+            return {"status": "success", "message": f"Step {step_id} updated"}
+
+    def delete_item_step(self, item_id: int, step_id: int) -> dict[str, Any]:
+        """Delete a step from a database item."""
+        with self._get_client() as client:
+            response = client.delete(
+                f"{self.base_url}/items/{item_id}/steps/{step_id}",
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Step {step_id} deleted from item {item_id}",
+            }
+
+    # ==================== COMMENTS METHODS ====================
+
+    def list_experiment_comments(self, experiment_id: int) -> list[dict[str, Any]]:
+        """List all comments on an experiment."""
+        with self._get_client() as client:
+            response = client.get(
+                f"{self.base_url}/experiments/{experiment_id}/comments"
+            )
+            response.raise_for_status()
+            return response.json()
+
+    def add_experiment_comment(
+        self, experiment_id: int, comment: str
+    ) -> dict[str, Any]:
+        """Add a comment to an experiment."""
+        with self._get_client() as client:
+            response = client.post(
+                f"{self.base_url}/experiments/{experiment_id}/comments",
+                json={"comment": comment},
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Comment added to experiment {experiment_id}",
+            }
+
+    def delete_experiment_comment(
+        self, experiment_id: int, comment_id: int
+    ) -> dict[str, Any]:
+        """Delete a comment from an experiment. Use the id from list_experiment_comments."""
+        with self._get_client() as client:
+            response = client.delete(
+                f"{self.base_url}/experiments/{experiment_id}/comments/{comment_id}",
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Comment {comment_id} deleted from experiment {experiment_id}",
+            }
+
+    def list_item_comments(self, item_id: int) -> list[dict[str, Any]]:
+        """List all comments on a database item."""
+        with self._get_client() as client:
+            response = client.get(f"{self.base_url}/items/{item_id}/comments")
+            response.raise_for_status()
+            return response.json()
+
+    def add_item_comment(self, item_id: int, comment: str) -> dict[str, Any]:
+        """Add a comment to a database item."""
+        with self._get_client() as client:
+            response = client.post(
+                f"{self.base_url}/items/{item_id}/comments",
+                json={"comment": comment},
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Comment added to item {item_id}",
+            }
+
+    def delete_item_comment(self, item_id: int, comment_id: int) -> dict[str, Any]:
+        """Delete a comment from a database item. Use the id from list_item_comments."""
+        with self._get_client() as client:
+            response = client.delete(
+                f"{self.base_url}/items/{item_id}/comments/{comment_id}",
+            )
+            response.raise_for_status()
+            return {
+                "status": "success",
+                "message": f"Comment {comment_id} deleted from item {item_id}",
+            }
+
+    # ==================== PUBCHEM METHODS ====================
+
+    def lookup_pubchem(self, identifier: str) -> dict[str, Any]:
+        """
+        Look up a compound on PubChem by name, CAS number, or InChIKey.
+
+        Args:
+            identifier: Compound name, CAS number (e.g. "81-88-9"), or InChIKey
+
+        Returns:
+            Dict with compound properties, or {"error": "..."} if not found
+        """
+        url = (
+            f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{identifier}"
+            "/property/MolecularFormula,MolecularWeight,IUPACName,"
+            "IsomericSMILES,InChIKey,XLogP,HBondDonorCount,HBondAcceptorCount/JSON"
+        )
+        with httpx.Client(timeout=15.0) as client:
+            response = client.get(url)
+            if response.status_code == 404:
+                return {"error": f"Compound '{identifier}' not found on PubChem"}
+            response.raise_for_status()
+            props = (
+                response.json()
+                .get("PropertyTable", {})
+                .get("Properties", [{}])[0]
+            )
+            cid = props.get("CID")
+            return {
+                "cid": cid,
+                "pubchem_url": (
+                    f"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}" if cid else None
+                ),
+                "iupac_name": props.get("IUPACName"),
+                "molecular_formula": props.get("MolecularFormula"),
+                "molecular_weight": props.get("MolecularWeight"),
+                "smiles": props.get("IsomericSMILES"),
+                "inchikey": props.get("InChIKey"),
+                "xlogp": props.get("XLogP"),
+                "hbond_donors": props.get("HBondDonorCount"),
+                "hbond_acceptors": props.get("HBondAcceptorCount"),
+            }
+
+    def create_chemical_from_pubchem(
+        self,
+        identifier: str,
+        category_id: int,
+        additional_notes: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Look up a compound on PubChem and create a Chemical database item.
+
+        Args:
+            identifier: Compound name, CAS number, or InChIKey
+            category_id: Item category ID for Chemicals (use list_items_types to find)
+            additional_notes: Optional extra text to append to the item body
+
+        Returns:
+            Created item info dict, or error dict if compound not found
+        """
+        compound = self.lookup_pubchem(identifier)
+        if "error" in compound:
+            return compound
+
+        name = compound.get("iupac_name") or identifier
+        cid = compound.get("cid")
+        formula = compound.get("molecular_formula", "")
+        mw = compound.get("molecular_weight", "")
+        smiles = compound.get("smiles", "")
+        inchikey = compound.get("inchikey", "")
+        pubchem_url = compound.get("pubchem_url", "")
+
+        body = (
+            f"<h2>Chemical Information</h2>"
+            f"<p><strong>Search identifier:</strong> {identifier}</p>"
+            f"<p><strong>IUPAC Name:</strong> {name}</p>"
+            f"<p><strong>Molecular Formula:</strong> {formula}</p>"
+            f"<p><strong>Molecular Weight:</strong> {mw} g/mol</p>"
+            f"<p><strong>SMILES:</strong> {smiles}</p>"
+            f"<p><strong>InChIKey:</strong> {inchikey}</p>"
+            f'<p><strong>PubChem CID:</strong> <a href="{pubchem_url}">{cid}</a></p>'
+        )
+        if compound.get("xlogp") is not None:
+            body += f"<p><strong>LogP (XLogP3):</strong> {compound['xlogp']}</p>"
+        if compound.get("hbond_donors") is not None:
+            body += (
+                f"<p><strong>H-bond donors / acceptors:</strong> "
+                f"{compound['hbond_donors']} / {compound['hbond_acceptors']}</p>"
+            )
+        body += (
+            "<h2>Lab Information</h2>"
+            "<p><strong>CAS Number:</strong> </p>"
+            "<p><strong>Supplier:</strong> </p>"
+            "<p><strong>Catalog Number:</strong> </p>"
+            "<p><strong>Lot Number:</strong> </p>"
+            "<p><strong>Purity:</strong> </p>"
+            "<p><strong>Storage:</strong> </p>"
+            "<p><strong>Location:</strong> </p>"
+        )
+        if additional_notes:
+            body += f"<h2>Notes</h2><p>{additional_notes}</p>"
+
+        # Use a concise title: identifier + formula
+        display_title = (
+            f"{identifier} ({formula})" if len(name) > 60 else name
+        )
+        return self.create_item(
+            category=category_id,
+            title=display_title,
+            body=body,
+        )
+
 
 # Initialize the MCP server
 server = Server("elabftw-mcp")
@@ -1855,6 +2169,290 @@ async def list_tools() -> list[Tool]:
                 "required": [],
             },
         ),
+        # ==================== UPLOAD LISTING TOOLS ====================
+        Tool(
+            name="list_experiment_uploads",
+            description="List all file attachments on an experiment, including filename, size, uploader, upload date, and a download URL. Use this to discover what files are attached before downloading or referencing them.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                },
+                "required": ["experiment_id"],
+            },
+        ),
+        Tool(
+            name="list_item_uploads",
+            description="List all file attachments on a database item (chemical, device, etc.), including filename, size, uploader, upload date, and a download URL.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                },
+                "required": ["item_id"],
+            },
+        ),
+        # ==================== STEPS TOOLS ====================
+        Tool(
+            name="add_experiment_step",
+            description="Add a checklist step or TODO task to an experiment. Steps appear as a checklist in the experiment entry. Useful for tracking protocol steps or action items.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Text of the step (e.g. 'Calibrate instrument before measurement')",
+                    },
+                },
+                "required": ["experiment_id", "body"],
+            },
+        ),
+        Tool(
+            name="update_experiment_step",
+            description="Update the text of an existing experiment step. Get step IDs from the 'steps' field in get_experiment.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                    "step_id": {
+                        "type": "integer",
+                        "description": "The ID of the step to update (from get_experiment 'steps' field)",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "New text for the step",
+                    },
+                },
+                "required": ["experiment_id", "step_id", "body"],
+            },
+        ),
+        Tool(
+            name="delete_experiment_step",
+            description="Delete a step from an experiment. Get step IDs from the 'steps' field in get_experiment.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                    "step_id": {
+                        "type": "integer",
+                        "description": "The ID of the step to delete",
+                    },
+                },
+                "required": ["experiment_id", "step_id"],
+            },
+        ),
+        Tool(
+            name="add_item_step",
+            description="Add a checklist step or maintenance task to a database item (e.g. equipment). Useful for service checklists or usage instructions.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Text of the step (e.g. 'Clean optical surfaces with IPA before use')",
+                    },
+                },
+                "required": ["item_id", "body"],
+            },
+        ),
+        Tool(
+            name="update_item_step",
+            description="Update the text of an existing item step. Get step IDs from the 'steps' field in get_item.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                    "step_id": {
+                        "type": "integer",
+                        "description": "The ID of the step to update",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "New text for the step",
+                    },
+                },
+                "required": ["item_id", "step_id", "body"],
+            },
+        ),
+        Tool(
+            name="delete_item_step",
+            description="Delete a step from a database item. Get step IDs from the 'steps' field in get_item.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                    "step_id": {
+                        "type": "integer",
+                        "description": "The ID of the step to delete",
+                    },
+                },
+                "required": ["item_id", "step_id"],
+            },
+        ),
+        # ==================== COMMENTS TOOLS ====================
+        Tool(
+            name="list_experiment_comments",
+            description="List all comments on an experiment, including author, date, and comment text. Use the returned 'id' field when deleting a comment.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                },
+                "required": ["experiment_id"],
+            },
+        ),
+        Tool(
+            name="add_experiment_comment",
+            description="Add a text comment to an experiment. Comments appear in a discussion thread below the experiment entry.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "The comment text to add",
+                    },
+                },
+                "required": ["experiment_id", "comment"],
+            },
+        ),
+        Tool(
+            name="delete_experiment_comment",
+            description="Delete a comment from an experiment. Use list_experiment_comments to get the comment 'id' first.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "experiment_id": {
+                        "type": "integer",
+                        "description": "The ID of the experiment",
+                    },
+                    "comment_id": {
+                        "type": "integer",
+                        "description": "The ID of the comment to delete (from list_experiment_comments)",
+                    },
+                },
+                "required": ["experiment_id", "comment_id"],
+            },
+        ),
+        Tool(
+            name="list_item_comments",
+            description="List all comments on a database item, including author, date, and comment text. Use the returned 'id' field when deleting a comment.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                },
+                "required": ["item_id"],
+            },
+        ),
+        Tool(
+            name="add_item_comment",
+            description="Add a text comment to a database item (chemical, device, etc.). Useful for lab notes, observations, or collaborative annotations.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "The comment text to add",
+                    },
+                },
+                "required": ["item_id", "comment"],
+            },
+        ),
+        Tool(
+            name="delete_item_comment",
+            description="Delete a comment from a database item. Use list_item_comments to get the comment 'id' first.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The ID of the database item",
+                    },
+                    "comment_id": {
+                        "type": "integer",
+                        "description": "The ID of the comment to delete (from list_item_comments)",
+                    },
+                },
+                "required": ["item_id", "comment_id"],
+            },
+        ),
+        # ==================== PUBCHEM TOOLS ====================
+        Tool(
+            name="lookup_pubchem",
+            description="Look up a chemical compound on PubChem by name, CAS number (e.g. '81-88-9'), or InChIKey. Returns molecular formula, weight, IUPAC name, SMILES, InChIKey, and LogP. Use this before creating a Chemical item to verify the compound and get its properties.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Compound name (e.g. 'Rhodamine B'), CAS number (e.g. '81-88-9'), or InChIKey",
+                    },
+                },
+                "required": ["identifier"],
+            },
+        ),
+        Tool(
+            name="create_chemical_from_pubchem",
+            description="Look up a compound on PubChem and automatically create a Chemical database item pre-filled with molecular formula, weight, IUPAC name, SMILES, InChIKey, and a PubChem link. Leaves supplier/lot/storage fields blank for manual completion. Use list_items_types to find the correct category_id for 'Chemicals'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Compound name, CAS number, or InChIKey to look up on PubChem",
+                    },
+                    "category_id": {
+                        "type": "integer",
+                        "description": "Item category ID for Chemicals. Use list_items_types to find it.",
+                    },
+                    "additional_notes": {
+                        "type": "string",
+                        "description": "Optional extra text to append (e.g. specific lab usage notes)",
+                    },
+                },
+                "required": ["identifier", "category_id"],
+            },
+        ),
     ]
 
 
@@ -2468,6 +3066,142 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     text=f"Found {len(bookable_items)} bookable items:\n\n{json.dumps(bookable_items, indent=2)}",
                 )
             ]
+
+        # ==================== UPLOAD LISTING HANDLERS ====================
+
+        elif name == "list_experiment_uploads":
+            experiment_id = arguments["experiment_id"]
+            result = elabftw_client.list_experiment_uploads(experiment_id)
+            if not result:
+                return [TextContent(type="text", text=f"No files attached to experiment {experiment_id}.")]
+            summary = []
+            for u in result:
+                summary.append({
+                    "id": u.get("id"),
+                    "filename": u.get("real_name"),
+                    "size_bytes": u.get("filesize"),
+                    "uploaded_by": u.get("fullname"),
+                    "uploaded_at": u.get("created_at"),
+                    "comment": u.get("comment"),
+                    "hash_sha256": u.get("hash"),
+                    "download_url": u.get("download_url"),
+                })
+            return [TextContent(type="text", text=f"Experiment {experiment_id} has {len(summary)} attachment(s):\n\n{json.dumps(summary, indent=2)}")]
+
+        elif name == "list_item_uploads":
+            item_id = arguments["item_id"]
+            result = elabftw_client.list_item_uploads(item_id)
+            if not result:
+                return [TextContent(type="text", text=f"No files attached to item {item_id}.")]
+            summary = []
+            for u in result:
+                summary.append({
+                    "id": u.get("id"),
+                    "filename": u.get("real_name"),
+                    "size_bytes": u.get("filesize"),
+                    "uploaded_by": u.get("fullname"),
+                    "uploaded_at": u.get("created_at"),
+                    "comment": u.get("comment"),
+                    "hash_sha256": u.get("hash"),
+                    "download_url": u.get("download_url"),
+                })
+            return [TextContent(type="text", text=f"Item {item_id} has {len(summary)} attachment(s):\n\n{json.dumps(summary, indent=2)}")]
+
+        # ==================== STEPS HANDLERS ====================
+
+        elif name == "add_experiment_step":
+            result = elabftw_client.add_experiment_step(
+                arguments["experiment_id"], arguments["body"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "update_experiment_step":
+            result = elabftw_client.update_experiment_step(
+                arguments["experiment_id"], arguments["step_id"], arguments["body"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "delete_experiment_step":
+            result = elabftw_client.delete_experiment_step(
+                arguments["experiment_id"], arguments["step_id"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "add_item_step":
+            result = elabftw_client.add_item_step(
+                arguments["item_id"], arguments["body"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "update_item_step":
+            result = elabftw_client.update_item_step(
+                arguments["item_id"], arguments["step_id"], arguments["body"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "delete_item_step":
+            result = elabftw_client.delete_item_step(
+                arguments["item_id"], arguments["step_id"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        # ==================== COMMENTS HANDLERS ====================
+
+        elif name == "list_experiment_comments":
+            experiment_id = arguments["experiment_id"]
+            result = elabftw_client.list_experiment_comments(experiment_id)
+            if not result:
+                return [TextContent(type="text", text=f"No comments on experiment {experiment_id}.")]
+            return [TextContent(type="text", text=f"{len(result)} comment(s) on experiment {experiment_id}:\n\n{json.dumps(result, indent=2)}")]
+
+        elif name == "add_experiment_comment":
+            result = elabftw_client.add_experiment_comment(
+                arguments["experiment_id"], arguments["comment"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "delete_experiment_comment":
+            result = elabftw_client.delete_experiment_comment(
+                arguments["experiment_id"], arguments["comment_id"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "list_item_comments":
+            item_id = arguments["item_id"]
+            result = elabftw_client.list_item_comments(item_id)
+            if not result:
+                return [TextContent(type="text", text=f"No comments on item {item_id}.")]
+            return [TextContent(type="text", text=f"{len(result)} comment(s) on item {item_id}:\n\n{json.dumps(result, indent=2)}")]
+
+        elif name == "add_item_comment":
+            result = elabftw_client.add_item_comment(
+                arguments["item_id"], arguments["comment"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "delete_item_comment":
+            result = elabftw_client.delete_item_comment(
+                arguments["item_id"], arguments["comment_id"]
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        # ==================== PUBCHEM HANDLERS ====================
+
+        elif name == "lookup_pubchem":
+            result = elabftw_client.lookup_pubchem(arguments["identifier"])
+            if "error" in result:
+                return [TextContent(type="text", text=result["error"])]
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "create_chemical_from_pubchem":
+            result = elabftw_client.create_chemical_from_pubchem(
+                identifier=arguments["identifier"],
+                category_id=arguments["category_id"],
+                additional_notes=arguments.get("additional_notes"),
+            )
+            if "error" in result:
+                return [TextContent(type="text", text=result["error"])]
+            return [TextContent(type="text", text=f"Chemical item created from PubChem:\n\n{json.dumps(result, indent=2)}")]
 
         else:
             return [
