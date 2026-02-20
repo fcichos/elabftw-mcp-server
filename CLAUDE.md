@@ -4,46 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) server that provides tools for AI assistants to interact with elabFTW, an open-source electronic lab notebook system. The server is implemented as a single Python file (`elabftw_mcp_server.py`, ~2200 lines) that exposes tools for managing experiments, database items (resources like chemicals, equipment, samples), and bookings/events.
+This is an MCP (Model Context Protocol) server that provides tools for AI assistants to interact with elabFTW, an open-source electronic lab notebook system. The server is implemented as a single Python file (`elabftw_mcp_server.py`, ~3000 lines) that exposes 45 tools for managing experiments, database items (resources like chemicals, equipment, samples), bookings/events, steps, comments, file attachments, and PubChem chemical import.
 
 ## Development Commands
 
 ### Running the Server
 
 ```bash
-# Direct execution (stdio mode for MCP)
-python elabftw_mcp_server.py
-
-# With environment variables
-ELABFTW_API_URL="https://your-server/api/v2" \
-ELABFTW_API_KEY="your-key" \
-ELABFTW_VERIFY_SSL="false" \
-python elabftw_mcp_server.py
+# Preferred: uv handles dependencies automatically (reads inline script metadata)
+uv run elabftw_mcp_server.py
 
 # Testing with MCP inspector
-npx @modelcontextprotocol/inspector python elabftw_mcp_server.py
+npx @modelcontextprotocol/inspector uv run elabftw_mcp_server.py
 ```
+
+**Note:** The `venv/` directory is empty. Use `uv run` — it installs into `.venv` from `pyproject.toml` automatically. Do not use `pip install` or `python` directly.
 
 ### Environment Setup
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
+# uv installs dependencies on first run — no manual setup needed
 cp .env.example .env
 # Edit .env with your elabFTW API URL and key
 ```
+
+### Claude Desktop Configuration
+
+The server is registered in `~/Library/Application Support/Claude/claude_desktop_config.json` as:
+```json
+"elabftw": {
+  "command": "uv",
+  "args": ["run", "--script", "/path/to/elabftw_mcp_server.py"],
+  "env": { "ELABFTW_API_URL": "...", "ELABFTW_API_KEY": "...", "ELABFTW_VERIFY_SSL": "false" }
+}
+```
+After editing the server file, restart Claude Desktop to reload.
 
 ## Architecture
 
 ### Single-File Design
 
-The entire MCP server is in `elabftw_mcp_server.py` (~2200 lines). This is intentional for simplicity and easy deployment.
+The entire MCP server is in `elabftw_mcp_server.py` (~3000 lines). This is intentional for simplicity and easy deployment.
 
 ### Core Components
 
@@ -55,14 +56,18 @@ The entire MCP server is in `elabftw_mcp_server.py` (~2200 lines). This is inten
 
 2. **MCP Server** (uses `mcp` library):
    - Implements MCP protocol via stdio
-   - Exposes ~40+ tools for experiments, items, and bookings
+   - Exposes **45 tools** across 7 categories
    - Provides 4 prompts for user guidance
    - All handlers are async despite using sync HTTP client (this is acceptable)
 
-3. **Tool Categories**:
-   - **Experiments**: CRUD, tagging, status, linking, attachments, templates, categories
-   - **Items/Resources**: CRUD, tagging, linking, attachments, item types
+3. **Tool Categories** (45 tools total):
+   - **Experiments**: CRUD, tagging, status, linking, templates, categories
+   - **Items/Resources**: CRUD, tagging, linking, item types
    - **Bookings/Events**: CRUD for scheduling equipment/resources
+   - **Uploads**: List attachments for experiments and items (with download URL)
+   - **Steps**: Checklist steps for experiments and items (create, update, delete)
+   - **Comments**: Discussion threads on experiments and items (list, create, delete)
+   - **PubChem**: Compound lookup by name/CAS/InChIKey; auto-create Chemical items
    - **Lab Prompt**: Returns domain-specific guidance for AI assistant behavior
 
 ### Key Design Patterns
@@ -89,6 +94,10 @@ The `call_tool` handler catches three error types:
 - **Pagination**: Use `limit` (max 100) and `offset` parameters
 - **Links**: Different endpoints for linking - `experiments_links` vs `items_links`
 - **Bookings**: Items must have `is_bookable=1` field set; bookings use ISO datetime format (e.g., `2024-01-15T09:00:00`)
+- **Upload download**: `GET /uploads/{id}` returns metadata JSON, not binary. Use the `download_url` field (requires browser session) to retrieve the actual file
+- **Step `finished` field**: PATCH with `finished: 1` returns HTTP 500 on current server — server-side bug; mark steps complete via web UI only
+- **Comment IDs**: The `Location` header after POST returns a different ID than the `id` field in GET responses. Always use `id` from `list_*_comments` for deletion
+- **PubChem client**: `lookup_pubchem` uses a plain `httpx.Client` (no SSL config, no API key) since it calls the public PubChem REST API, not elabFTW
 
 ## Configuration
 
@@ -173,14 +182,15 @@ All dependencies use permissive versions (`>=`) to allow updates.
 
 ```
 .
-├── elabftw_mcp_server.py      # Main server (all code here, ~2200 lines)
+├── elabftw_mcp_server.py      # Main server (all code here, ~3000 lines)
 ├── explore_api.py             # API discovery/testing script
 ├── test_bookings.py           # Booking functionality test script
-├── booking_implementation.py  # Ready-to-integrate booking code
+├── booking_implementation.py  # Reference booking implementation
 ├── .env                       # Local config (gitignored)
 ├── .env.example               # Config template
 ├── requirements.txt           # pip dependencies
-├── pyproject.toml             # Python project metadata
+├── pyproject.toml             # Python project metadata (used by uv)
+├── .venv/                     # uv-managed virtual environment (auto-created)
 ├── README.md                  # User documentation
 ├── ADDING_FEATURES.md         # Guide for adding new features
 └── mcp-config.json            # Example MCP configuration
@@ -190,34 +200,32 @@ All dependencies use permissive versions (`>=`) to allow updates.
 
 ### Discovery Process
 
-Use the included helper scripts to discover and test API endpoints:
+Write a standalone script using the same `httpx.Client` pattern as `ElabFTWClient`, probe candidate endpoints, inspect response shapes, and test write operations before implementing. See `explore_api.py` and `test_bookings.py` as examples.
 
 ```bash
-# Discover available API endpoints
-python explore_api.py
-
-# Test booking functionality specifically
-python test_bookings.py
+uv run explore_api.py
 ```
-
-`explore_api.py` systematically tests endpoints and examines data structures. Use it before implementing new features.
 
 ### Implementation Pattern
 
-See `ADDING_FEATURES.md` for detailed guide. The general pattern:
+1. **Discover** - Probe endpoints in a temp script; check Swagger UI at `<server>/api/v2/`
+2. **Test** - Confirm create/update/delete responses and status codes
+3. **Implement** - Add method to `ElabFTWClient`, tool definition to `list_tools()`, handler to `call_tool()`
+4. **Verify** - Import the module and call the client method directly, then test via MCP inspector
 
-1. **Discover** - Run `explore_api.py` or check Swagger UI at `<server>/api/v2/`
-2. **Test** - Create a test script (see `test_bookings.py` as example)
-3. **Implement** - Add methods to `ElabFTWClient`, tools to `list_tools()`, handlers to `call_tool()`
-4. **Verify** - Test with MCP inspector before deploying
+### Implemented Features
 
-### Example: Booking Functionality
-
-Booking/scheduling functionality has been integrated:
-- Endpoints: `/events` (list, get, create, update, delete)
-- Tools: `list_events`, `get_event`, `create_booking`, `update_booking`, `delete_booking`
-- Status: Fully implemented and working
-- Reference: See `ADDING_FEATURES.md` for the implementation pattern
+| Feature group | Tools | Notes |
+|---|---|---|
+| Experiments | `list`, `get`, `create`, `update`, `delete`, `set_status`, `add/remove_tag`, `link_item`, `upload_attachment` | |
+| Items/Resources | `list`, `get`, `create`, `update`, `delete`, `add/remove_tag`, `link_item_to_item`, `upload_attachment_to_item` | |
+| Metadata | `list_experiment_templates`, `list_experiment_categories`, `list_items_types` | |
+| Bookings | `list_bookings`, `get_booking`, `create_booking`, `update_booking`, `cancel_booking`, `get_bookable_items` | Items need `is_bookable=1` |
+| Uploads | `list_experiment_uploads`, `list_item_uploads` | Returns metadata + download URL; binary download requires browser session |
+| Steps | `add/update/delete_experiment_step`, `add/update/delete_item_step` | `finished` field not patchable (server bug) |
+| Comments | `list/add/delete_experiment_comment`, `list/add/delete_item_comment` | Use `id` from list, not location header |
+| PubChem | `lookup_pubchem`, `create_chemical_from_pubchem` | Calls public PubChem REST API |
+| Lab Prompt | `lab_prompt_elabftw` | Returns `LAB_PROMPT` constant |
 
 ## Security Considerations
 
