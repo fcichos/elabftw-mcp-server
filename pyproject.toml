@@ -5,7 +5,7 @@ description = "MCP Server for elabFTW - Electronic Lab Notebook"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp>=2.0.0",
     "httpx>=0.25.0",
     "anyio>=4.0.0",
     "python-dotenv>=1.0.0",
