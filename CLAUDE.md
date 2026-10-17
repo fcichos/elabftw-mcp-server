@@ -171,7 +171,7 @@ Since there are no automated tests, manual testing is required:
 
 ## Dependencies
 
-- **mcp** (>=1.0.0): Model Context Protocol SDK
+- **mcp** (>=2.0.0): Model Context Protocol SDK
 - **httpx** (>=0.25.0): HTTP client (sync and async support)
 - **anyio** (>=4.0.0): Async I/O compatibility layer
 - **python-dotenv** (>=1.0.0): Environment variable loading from .env files

@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "mcp>=1.0.0",
+#     "mcp>=2.0.0",
 #     "httpx>=0.25.0",
 #     "anyio>=4.0.0",
 #     "python-dotenv>=1.0.0",
@@ -39,16 +39,21 @@ except ImportError:
     pass  # python-dotenv not installed, use environment variables directly
 
 import httpx
-from mcp.server import Server
+from mcp.server import Server, ServerRequestContext
 from mcp.server.stdio import stdio_server
 from mcp.types import (
     CallToolResult,
+    GetPromptRequestParams,
     GetPromptResult,
+    ListPromptsResult,
+    ListToolsResult,
+    PaginatedRequestParams,
     Prompt,
     PromptArgument,
     PromptMessage,
     TextContent,
     Tool,
+    CallToolRequestParams,
 )
 
 # Configure logging
@@ -1277,14 +1282,10 @@ class ElabFTWClient:
         )
 
 
-# Initialize the MCP server
-server = Server("elabftw-mcp")
-
 # Initialize the elabFTW client
 elabftw_client = ElabFTWClient(API_BASE_URL, API_KEY, VERIFY_SSL)
 
 
-@server.list_prompts()
 async def list_prompts() -> list[Prompt]:
     """List available prompts for elabFTW interactions."""
     return [
@@ -1323,7 +1324,6 @@ async def list_prompts() -> list[Prompt]:
     ]
 
 
-@server.get_prompt()
 async def get_prompt(
     name: str, arguments: dict[str, str] | None = None
 ) -> GetPromptResult:
@@ -1559,7 +1559,6 @@ What would you like to search for?""",
         raise ValueError(f"Unknown prompt: {name}")
 
 
-@server.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools for elabFTW interactions."""
     return [
@@ -2456,7 +2455,6 @@ async def list_tools() -> list[Tool]:
     ]
 
 
-@server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls for elabFTW operations."""
 
@@ -3238,6 +3236,43 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 text=f"An unexpected error occurred: {error_msg}",
             )
         ]
+
+
+# MCP 2.x registers handlers through the Server constructor and passes
+# (context, params) objects. These adapters wrap the handlers above.
+async def _on_list_prompts(
+    ctx: ServerRequestContext, params: PaginatedRequestParams | None
+) -> ListPromptsResult:
+    return ListPromptsResult(prompts=await list_prompts())
+
+
+async def _on_get_prompt(
+    ctx: ServerRequestContext, params: GetPromptRequestParams
+) -> GetPromptResult:
+    return await get_prompt(params.name, params.arguments)
+
+
+async def _on_list_tools(
+    ctx: ServerRequestContext, params: PaginatedRequestParams | None
+) -> ListToolsResult:
+    return ListToolsResult(tools=await list_tools())
+
+
+async def _on_call_tool(
+    ctx: ServerRequestContext, params: CallToolRequestParams
+) -> CallToolResult:
+    content = await call_tool(params.name, params.arguments or {})
+    return CallToolResult(content=content)
+
+
+# Initialize the MCP server
+server = Server(
+    "elabftw-mcp",
+    on_list_prompts=_on_list_prompts,
+    on_get_prompt=_on_get_prompt,
+    on_list_tools=_on_list_tools,
+    on_call_tool=_on_call_tool,
+)
 
 
 async def main():
